@@ -1,0 +1,49 @@
+
+SQLITE DATA QUALITY REPORT
+==========================
+
+SOURCE DATABASE
+---------------
+Students:
+4
+
+Courses:
+3
+
+Enrollments:
+7
+
+Assessments:
+21
+
+
+DATA QUALITY
+------------
+Source Validation Issues:
+0
+
+Relationship Issues:
+0
+
+Total Validation Issues:
+0
+
+
+ANALYTICAL DATASET
+------------------
+Rows:
+4
+
+Columns:
+12
+
+Missing Values:
+0
+
+Duplicate Student IDs:
+0
+
+
+VALIDATION STATUS
+-----------------
+PASSED
