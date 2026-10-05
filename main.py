@@ -3,171 +3,105 @@ import subprocess
 import sys
 
 
-# ==========================================================
-# تحديد المجلد الرئيسي للمشروع
-# ==========================================================
-
+# مجلد المشروع الرئيسي
 BASE_DIR = Path(__file__).resolve().parent
 
 
-# ==========================================================
-# تشغيل ملف Python مستقل
-# ==========================================================
-
-def run_script(title, script_path):
-
-    print("\n" + "=" * 65)
-    print(f"بدء تشغيل: {title}")
-    print("=" * 65)
-
-    try:
-
-        # استخدام نفس Python الموجود في البيئة الافتراضية الحالية
-        subprocess.run(
-            [
-                sys.executable,
-                str(script_path)
-            ],
-            cwd=BASE_DIR,
-            check=True
-        )
-
-        print("\n" + "-" * 65)
-        print(f"اكتمل بنجاح: {title}")
-        print("-" * 65)
-
-    except subprocess.CalledProcessError:
-
-        print("\nحدث خطأ أثناء تشغيل:")
-        print(title)
-
-        # إيقاف المشروع حتى لا نكمل على بيانات غير صحيحة
-        sys.exit(1)
-
-
-# ==========================================================
-# تشغيل المشروع الكامل
-# ==========================================================
-
-def main():
-
-    print(
-        "\n=========================================================="
-    )
-    print(
-        "       STUDENT DATA ENGINEERING PROJECT"
-    )
-    print(
-        "=========================================================="
-    )
-
-    # ------------------------------------------------------
-    # Pipeline 1: CSV
-    # ------------------------------------------------------
-
-    run_script(
-        "CSV Pipeline",
+# ملفات الـ Pipelines
+PIPELINES = [
+    (
+        "CSV",
         BASE_DIR
         / "pipelines"
         / "csv_pipeline"
         / "main.py"
-    )
+    ),
 
-    # ------------------------------------------------------
-    # Pipeline 2: SQLite
-    # ------------------------------------------------------
-
-    run_script(
-        "SQLite Pipeline",
+    (
+        "SQLite",
         BASE_DIR
         / "pipelines"
         / "sqlite_pipeline"
         / "main.py"
-    )
+    ),
 
-    # ------------------------------------------------------
-    # Pipeline 3: API
-    # ------------------------------------------------------
-
-    run_script(
-        "API Pipeline",
+    (
+        "API",
         BASE_DIR
         / "pipelines"
         / "api_pipeline"
         / "main.py"
-    )
+    ),
 
-    # ------------------------------------------------------
-    # Pipeline 4: MongoDB
-    # ------------------------------------------------------
-
-    # أولاً نتأكد من وجود Raw Collection
-    # seed_data لن يكرر البيانات إذا كانت موجودة مسبقاً
-    run_script(
-        "MongoDB Raw Data Seed",
+    (
+        "MongoDB Seed + CRUD",
         BASE_DIR
         / "pipelines"
         / "mongodb_pipeline"
         / "seed_data.py"
-    )
+    ),
 
-    # بعدها نشغل Pipeline المعالجة
-    run_script(
-        "MongoDB Pipeline",
+    (
+        "MongoDB",
         BASE_DIR
         / "pipelines"
         / "mongodb_pipeline"
         / "main.py"
     )
+]
 
-    # ------------------------------------------------------
-    # اكتمال المشروع
-    # ------------------------------------------------------
+
+def run_pipeline(
+    name,
+    file_path
+):
 
     print(
-        "\n=========================================================="
-    )
-    print(
-        "جميع Data Pipelines اكتملت بنجاح"
-    )
-    print(
-        "=========================================================="
+        "\n"
+        + "=" * 50
     )
 
     print(
-        "\nتم تنفيذ:"
+        f"Running {name} Pipeline"
     )
 
     print(
-        "1. CSV Pipeline      ✓"
+        "=" * 50
+    )
+
+    subprocess.run(
+        [
+            sys.executable,
+            str(file_path)
+        ],
+        check=True
+    )
+
+
+def main():
+
+    print(
+        "\nSTUDENT DATA ENGINEERING PROJECT"
+    )
+
+    for name, file_path in PIPELINES:
+
+        run_pipeline(
+            name,
+            file_path
+        )
+
+    print(
+        "\n"
+        + "=" * 50
     )
 
     print(
-        "2. SQLite Pipeline   ✓"
+        "All pipelines completed successfully."
     )
 
     print(
-        "3. API Pipeline      ✓"
-    )
-
-    print(
-        "4. MongoDB Pipeline  ✓"
-    )
-
-    print(
-        "\nراجع النتائج داخل:"
-    )
-
-    print(
-        "data/processed/"
-    )
-
-    print(
-        "\nوراجع تقارير الجودة داخل:"
-    )
-
-    print(
-        "reports/"
+        "=" * 50
     )
 
 
