@@ -1,39 +1,7 @@
-
 CSV DATA QUALITY REPORT
 =======================
-
-Raw Rows:
-8
-
-Processed Rows:
-8
-
-Raw Columns:
-6
-
-Processed Columns:
-9
-
-Missing Values Found:
-2
-
-Duplicate Rows Found:
-0
-
-Invalid Age Values:
-1
-
-Invalid GPA Values:
-1
-
-Invalid Attendance Values:
-1
-
-Final Missing Values:
-0
-
-Final Duplicate Student IDs:
-0
-
-Validation Status:
-PASSED
+Raw rows: 8
+Final rows: 8
+Missing values before cleaning: 2
+Duplicate rows before cleaning: 0
+Final validation: PASSED
