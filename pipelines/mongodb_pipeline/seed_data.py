@@ -1,10 +1,11 @@
 from pathlib import Path
-from pymongo import MongoClient
 import json
+
+from pymongo import MongoClient
 
 
 # ==========================================================
-# إعداد المسارات والاتصال
+# الإعدادات
 # ==========================================================
 
 BASE_DIR = Path(__file__).resolve().parents[2]
@@ -17,107 +18,156 @@ RAW_FILE = (
     / "students_mongodb_raw.json"
 )
 
-MONGO_URI = "mongodb://127.0.0.1:27017/"
+MONGO_URI = "mongodb://localhost:27017/"
 
 DATABASE_NAME = "student_data_engineering"
 
-COLLECTION_NAME = "students_raw"
+RAW_COLLECTION = "students_raw"
+
+DEMO_COLLECTION = "students_crud_demo"
 
 
 # ==========================================================
-# قراءة ملف JSON الخام
+# قراءة JSON
 # ==========================================================
 
-def load_raw_json():
+def load_data() -> list[dict]:
 
-    # قراءة البيانات كما هي بدون تنظيف أو تعديل
     with RAW_FILE.open(
         "r",
         encoding="utf-8"
     ) as file:
 
-        data = json.load(file)
-
-    # التأكد أن الملف يحتوي قائمة سجلات
-    if not isinstance(data, list):
-
-        raise ValueError(
-            "يجب أن يحتوي ملف JSON على قائمة من السجلات"
+        return json.load(
+            file
         )
 
-    print(
-        "تم قراءة",
-        len(data),
-        "سجلات من ملف JSON"
-    )
-
-    return data
-
 
 # ==========================================================
-# الاتصال بـ MongoDB
-# ==========================================================
-
-def connect_mongodb():
-
-    client = MongoClient(
-        MONGO_URI,
-        serverSelectionTimeoutMS=5000
-    )
-
-    # اختبار الاتصال
-    client.admin.command("ping")
-
-    print("تم الاتصال بـ MongoDB بنجاح")
-
-    return client
-
-
-# ==========================================================
-# إدخال البيانات الخام
+# حفظ Raw Data في MongoDB
 # ==========================================================
 
 def seed_raw_data(
-    client,
-    data
-):
-
-    database = client[
-        DATABASE_NAME
-    ]
+    database,
+    data: list[dict]
+) -> None:
 
     collection = database[
-        COLLECTION_NAME
+        RAW_COLLECTION
     ]
 
-    # التحقق هل تم إدخال البيانات من قبل
-    existing_count = (
-        collection.count_documents({})
+    count = collection.count_documents(
+        {}
     )
 
-    if existing_count > 0:
+    if count == 0:
 
-        print(
-            "Collection students_raw تحتوي بالفعل على",
-            existing_count,
-            "سجلات"
+        collection.insert_many(
+            data
         )
 
         print(
-            "لن نقوم بالحذف أو الإدخال مرة أخرى حفاظاً على البيانات الخام"
+            f"Inserted raw documents: {len(data)}"
         )
 
-        return
+    else:
 
-    # إدخال البيانات كما هي
-    result = collection.insert_many(
-        data
+        print(
+            f"Raw collection already has {count} documents."
+        )
+
+
+# ==========================================================
+# CRUD Demo
+# ==========================================================
+
+def crud_demo(
+    database
+) -> None:
+
+    collection = database[
+        DEMO_COLLECTION
+    ]
+
+    # حذف نسخة Demo قديمة إن وجدت
+    collection.delete_one(
+        {
+            "student_id": "DEMO001"
+        }
+    )
+
+    # CREATE
+    student = {
+        "student_id": "DEMO001",
+        "name": "Demo Student",
+        "skills": [
+            "Python",
+            "MongoDB"
+        ],
+        "academic": {
+            "gpa": 3.5,
+            "attendance": 90
+        }
+    }
+
+    collection.insert_one(
+        student
     )
 
     print(
-        "تم إدخال",
-        len(result.inserted_ids),
-        "سجلات إلى MongoDB"
+        "\nCREATE: Student inserted."
+    )
+
+    # READ
+    result = collection.find_one(
+        {
+            "student_id": "DEMO001"
+        },
+        {
+            "_id": 0
+        }
+    )
+
+    print(
+        "READ:",
+        result
+    )
+
+    # UPDATE
+    collection.update_one(
+        {
+            "student_id": "DEMO001"
+        },
+        {
+            "$set": {
+                "academic.gpa": 3.7
+            }
+        }
+    )
+
+    result = collection.find_one(
+        {
+            "student_id": "DEMO001"
+        },
+        {
+            "_id": 0
+        }
+    )
+
+    print(
+        "UPDATE:",
+        result
+    )
+
+    # DELETE
+    collection.delete_one(
+        {
+            "student_id": "DEMO001"
+        }
+    )
+
+    print(
+        "DELETE: Demo student removed."
     )
 
 
@@ -127,32 +177,47 @@ def seed_raw_data(
 
 def main():
 
-    print(
-        "\n========== MONGODB RAW DATA SEED =========="
-    )
-
-    data = load_raw_json()
-
-    client = connect_mongodb()
+    client = None
 
     try:
 
+        data = load_data()
+
+        client = MongoClient(
+            MONGO_URI,
+            serverSelectionTimeoutMS=5000
+        )
+
+        client.admin.command(
+            "ping"
+        )
+
+        print(
+            "Connected to MongoDB."
+        )
+
+        database = client[
+            DATABASE_NAME
+        ]
+
         seed_raw_data(
-            client,
+            database,
             data
+        )
+
+        crud_demo(
+            database
+        )
+
+        print(
+            "\nMongoDB seed and CRUD demo completed."
         )
 
     finally:
 
-        client.close()
+        if client is not None:
 
-        print(
-            "تم إغلاق الاتصال بـ MongoDB"
-        )
-
-    print(
-        "========== SEED COMPLETED =========="
-    )
+            client.close()
 
 
 if __name__ == "__main__":

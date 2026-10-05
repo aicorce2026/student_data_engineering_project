@@ -1,24 +1,22 @@
 from pathlib import Path
-import json
 
 import pandas as pd
 from pymongo import MongoClient
 
 
 # ==========================================================
-# إعداد المشروع والاتصال
+# الإعدادات
 # ==========================================================
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 
-MONGO_URI = "mongodb://127.0.0.1:27017/"
+MONGO_URI = "mongodb://localhost:27017/"
 
 DATABASE_NAME = "student_data_engineering"
 
 RAW_COLLECTION = "students_raw"
-CLEAN_COLLECTION = "students_clean"
 
-PROCESSED_FILE = (
+OUTPUT_FILE = (
     BASE_DIR
     / "data"
     / "processed"
@@ -34,136 +32,109 @@ REPORT_FILE = (
 
 
 # ==========================================================
-# 1. الاتصال بـ MongoDB
+# الاتصال بـ MongoDB
 # ==========================================================
 
-def connect_mongodb():
+def get_collection():
 
     client = MongoClient(
         MONGO_URI,
         serverSelectionTimeoutMS=5000
     )
 
-    # اختبار الاتصال
-    client.admin.command("ping")
+    client.admin.command(
+        "ping"
+    )
 
-    print("تم الاتصال بـ MongoDB بنجاح")
+    database = client[
+        DATABASE_NAME
+    ]
 
-    return client
+    collection = database[
+        RAW_COLLECTION
+    ]
+
+    return client, collection
 
 
 # ==========================================================
-# 2. فحص البيانات الخام
+# قراءة البيانات
 # ==========================================================
 
-def inspect_raw_data(collection):
+def read_students(
+    collection
+) -> list[dict]:
 
-    print(
-        "\n========== RAW MONGODB INSPECTION =========="
-    )
-
-    count = collection.count_documents({})
-
-    print(
-        "عدد السجلات الخام:",
-        count
-    )
-
-    print(
-        "\n========== أول سجلين =========="
-    )
-
-    records = list(
+    return list(
         collection.find(
             {},
-            {"_id": 0}
-        ).limit(2)
-    )
-
-    for record in records:
-        print(record)
-
-
-# ==========================================================
-# 3. Nested Query
-# البحث داخل الحقول المتداخلة
-# ==========================================================
-
-def run_nested_query(collection):
-
-    print(
-        "\n========== NESTED QUERY =========="
-    )
-
-    # البحث عن الطلاب الذين GPA لديهم أكبر من 3.5
-    results = list(
-        collection.find(
             {
-                "academic.gpa": {
-                    "$gt": 3.5
-                }
-            },
-            {
-                "_id": 0,
-                "student_id": 1,
-                "personal.name": 1,
-                "academic.gpa": 1
+                "_id": 0
             }
         )
     )
 
-    print(
-        "طلاب GPA أكبر من 3.5:"
-    )
-
-    for result in results:
-        print(result)
-
 
 # ==========================================================
-# 4. Array Query
-# البحث داخل Array
+# استعلامات MongoDB
 # ==========================================================
 
-def run_array_query(collection):
+def show_queries(
+    collection
+) -> None:
 
     print(
-        "\n========== ARRAY QUERY =========="
+        "\nStudents with GPA >= 3.5:"
     )
 
-    # البحث عن الطلاب الذين لديهم مهارة Python
-    results = list(
-        collection.find(
-            {
-                "skills": "Python"
-            },
-            {
-                "_id": 0,
-                "student_id": 1,
-                "personal.name": 1,
-                "skills": 1
+    students = collection.find(
+        {
+            "academic.gpa": {
+                "$gte": 3.5
             }
+        },
+        {
+            "_id": 0,
+            "student_id": 1,
+            "personal.name": 1,
+            "academic.gpa": 1
+        }
+    )
+
+    for student in students:
+        print(
+            student
         )
-    )
 
     print(
-        "الطلاب الذين لديهم مهارة Python:"
+        "\nStudents with Python skill:"
     )
 
-    for result in results:
-        print(result)
+    students = collection.find(
+        {
+            "skills": "Python"
+        },
+        {
+            "_id": 0,
+            "student_id": 1,
+            "personal.name": 1,
+            "skills": 1
+        }
+    )
+
+    for student in students:
+        print(
+            student
+        )
 
 
 # ==========================================================
-# 5. Aggregation
-# تجميع البيانات حسب المدينة
+# Aggregation
 # ==========================================================
 
-def run_aggregation(collection):
-
-    print(
-        "\n========== AGGREGATION =========="
-    )
+def show_aggregation(
+    collection
+) -> None:
 
     pipeline = [
         {
@@ -181,107 +152,48 @@ def run_aggregation(collection):
         }
     ]
 
-    results = list(
-        collection.aggregate(
-            pipeline
-        )
-    )
-
     print(
-        "عدد الطلاب حسب المدينة قبل التنظيف:"
+        "\nStudents by city:"
     )
 
-    for result in results:
-        print(result)
-
-
-# ==========================================================
-# 6. Extract
-# استخراج MongoDB إلى Pandas
-# ==========================================================
-
-def extract_to_dataframe(collection):
-
-    documents = list(
-        collection.find(
-            {},
-            {"_id": 0}
-        )
-    )
-
-    if not documents:
-
-        raise ValueError(
-            "MongoDB لا تحتوي بيانات"
+    for item in collection.aggregate(
+        pipeline
+    ):
+        print(
+            item
         )
 
-    # تحويل Nested JSON إلى DataFrame
-    df = pd.json_normalize(
-        documents
-    )
-
-    print(
-        "\nتم استخراج البيانات إلى DataFrame"
-    )
-
-    print(
-        "الحجم:",
-        df.shape
-    )
-
-    return df
-
 
 # ==========================================================
-# 7. اكتشاف مشاكل البيانات
+# تحويل MongoDB إلى DataFrame
 # ==========================================================
 
-def inspect_quality(df):
+def transform_to_dataframe(
+    records: list[dict]
+) -> pd.DataFrame:
 
-    print(
-        "\n========== DATA QUALITY BEFORE CLEANING =========="
-    )
-
-    print(
-        "\nالقيم المفقودة:"
-    )
-
-    print(
-        df.isnull().sum()
-    )
-
-    print(
-        "\nStudent IDs المكررة:"
-    )
-
-    print(
-        df["student_id"]
-        .duplicated()
-        .sum()
-    )
-
-    print(
-        "\nأنواع البيانات:"
-    )
-
-    print(
-        df.dtypes
+    return pd.json_normalize(
+        records
     )
 
 
 # ==========================================================
-# 8. Cleaning + Transformation
+# تنظيف البيانات
 # ==========================================================
 
-def clean_data(df):
+def clean_data(
+    df: pd.DataFrame
+) -> pd.DataFrame:
 
-    # العمل على نسخة حتى نحافظ على البيانات المستخرجة
     df = df.copy()
 
-    # ------------------------------------------------------
-    # تنظيف النصوص
-    # ------------------------------------------------------
+    # حذف Student ID المكرر
+    df = df.drop_duplicates(
+        subset=["student_id"],
+        keep="first"
+    )
 
+    # تنظيف النصوص
     df["personal.name"] = (
         df["personal.name"]
         .astype("string")
@@ -295,10 +207,7 @@ def clean_data(df):
         .str.title()
     )
 
-    # ------------------------------------------------------
-    # تحويل أنواع البيانات الرقمية
-    # ------------------------------------------------------
-
+    # تحويل البيانات الرقمية
     numeric_columns = [
         "personal.age",
         "academic.gpa",
@@ -312,592 +221,270 @@ def clean_data(df):
             errors="coerce"
         )
 
-    # ------------------------------------------------------
-    # معالجة العمر غير الصحيح
-    # ------------------------------------------------------
-
-    df.loc[
-        ~df["personal.age"].between(
-            16,
-            80
-        ),
-        "personal.age"
-    ] = pd.NA
-
+    # تحديد القيم غير الصحيحة
     df["personal.age"] = (
-        df["personal.age"]
-        .fillna(
-            df["personal.age"].median()
+        df["personal.age"].where(
+            df["personal.age"].between(
+                16,
+                80
+            )
         )
     )
-
-    # ------------------------------------------------------
-    # معالجة GPA
-    # ------------------------------------------------------
-
-    df.loc[
-        ~df["academic.gpa"].between(
-            0,
-            4
-        ),
-        "academic.gpa"
-    ] = pd.NA
 
     df["academic.gpa"] = (
-        df["academic.gpa"]
-        .fillna(
-            df["academic.gpa"].median()
+        df["academic.gpa"].where(
+            df["academic.gpa"].between(
+                0,
+                4
+            )
         )
     )
-
-    # ------------------------------------------------------
-    # معالجة Attendance
-    # ------------------------------------------------------
-
-    df.loc[
-        ~df["academic.attendance"].between(
-            0,
-            100
-        ),
-        "academic.attendance"
-    ] = pd.NA
 
     df["academic.attendance"] = (
-        df["academic.attendance"]
-        .fillna(
-            df["academic.attendance"].median()
+        df["academic.attendance"].where(
+            df["academic.attendance"].between(
+                0,
+                100
+            )
         )
     )
 
-    # ------------------------------------------------------
-    # إزالة student_id المكرر
-    # ------------------------------------------------------
+    # معالجة القيم المفقودة
+    for column in numeric_columns:
 
-    df = df.drop_duplicates(
-        subset=["student_id"],
-        keep="first"
-    )
+        df[column] = (
+            df[column]
+            .fillna(
+                df[column].median()
+            )
+        )
 
-    # ------------------------------------------------------
-    # Feature Engineering من Arrays
-    # ------------------------------------------------------
-
-    df["skills_count"] = (
+    # Feature بسيطة من Unit 8
+    df["python_skill"] = (
         df["skills"]
         .apply(
-            lambda value:
-            len(value)
-            if isinstance(value, list)
-            else 0
-        )
-    )
-
-    df["projects_count"] = (
-        df["projects"]
-        .apply(
-            lambda value:
-            len(value)
-            if isinstance(value, list)
-            else 0
-        )
-    )
-
-    df["has_python"] = (
-        df["skills"]
-        .apply(
-            lambda value:
-            "Python" in value
-            if isinstance(value, list)
+            lambda skills:
+            "Python" in skills
+            if isinstance(
+                skills,
+                list
+            )
             else False
         )
-    )
-
-    # ------------------------------------------------------
-    # Feature إضافية
-    # ------------------------------------------------------
-
-    df["performance_score"] = (
-        df["academic.gpa"]
-        / 4
-        * 100
     )
 
     return df
 
 
 # ==========================================================
-# 9. Validation
+# التحقق من البيانات
 # ==========================================================
 
-def validate_data(df):
+def validate_dataframe(
+    df: pd.DataFrame
+) -> None:
 
-    errors = []
+    required_columns = {
+        "student_id",
+        "personal.name",
+        "academic.gpa"
+    }
 
-    # student_id يجب أن يكون فريداً
-    if df["student_id"].duplicated().any():
+    missing_columns = (
+        required_columns
+        - set(df.columns)
+    )
 
-        errors.append(
-            "يوجد student_id مكرر"
+    if missing_columns:
+
+        raise ValueError(
+            f"Missing columns: {missing_columns}"
         )
 
-    # student_id مطلوب
-    if df["student_id"].isnull().any():
+    if df.empty:
 
-        errors.append(
-            "يوجد student_id مفقود"
+        raise ValueError(
+            "DataFrame is empty."
         )
 
-    # الاسم مطلوب
-    if df["personal.name"].isnull().any():
+    if not df[
+        "student_id"
+    ].is_unique:
 
-        errors.append(
-            "يوجد اسم مفقود"
+        raise ValueError(
+            "student_id must be unique."
         )
 
-    # العمر
-    if not df["personal.age"].between(
-        16,
-        80
-    ).all():
-
-        errors.append(
-            "يوجد عمر غير صالح"
-        )
-
-    # GPA
-    if not df["academic.gpa"].between(
+    if not df[
+        "academic.gpa"
+    ].between(
         0,
         4
     ).all():
 
-        errors.append(
-            "يوجد GPA غير صالح"
+        raise ValueError(
+            "Invalid GPA values."
         )
 
-    # Attendance
-    if not df["academic.attendance"].between(
+    if not df[
+        "academic.attendance"
+    ].between(
         0,
         100
     ).all():
 
-        errors.append(
-            "يوجد Attendance غير صالح"
-        )
-
-    if errors:
-
-        print(
-            "\nفشل التحقق من البيانات"
-        )
-
-        for error in errors:
-            print("-", error)
-
         raise ValueError(
-            "MongoDB validation failed"
+            "Invalid attendance values."
         )
 
-    print(
-        "\nتم التحقق من بيانات MongoDB بنجاح"
-    )
-
 
 # ==========================================================
-# 10. تحويل البيانات النظيفة مرة أخرى إلى Documents
+# حفظ البيانات
 # ==========================================================
 
-def dataframe_to_documents(df):
+def save_data(
+    df: pd.DataFrame
+) -> None:
 
-    documents = []
-
-    for _, row in df.iterrows():
-
-        document = {
-
-            "student_id":
-                row["student_id"],
-
-            "personal": {
-                "name":
-                    row["personal.name"],
-
-                "age":
-                    int(
-                        row["personal.age"]
-                    ),
-
-                "city":
-                    row["personal.city"]
-            },
-
-            "academic": {
-                "gpa":
-                    float(
-                        row["academic.gpa"]
-                    ),
-
-                "attendance":
-                    float(
-                        row[
-                            "academic.attendance"
-                        ]
-                    )
-            },
-
-            "skills":
-                row["skills"],
-
-            "projects":
-                row["projects"],
-
-            "features": {
-                "skills_count":
-                    int(
-                        row["skills_count"]
-                    ),
-
-                "projects_count":
-                    int(
-                        row["projects_count"]
-                    ),
-
-                "has_python":
-                    bool(
-                        row["has_python"]
-                    ),
-
-                "performance_score":
-                    float(
-                        row[
-                            "performance_score"
-                        ]
-                    )
-            }
-        }
-
-        documents.append(
-            document
-        )
-
-    return documents
-
-
-# ==========================================================
-# 11. حفظ Collection نظيفة
-# ==========================================================
-
-def save_clean_collection(
-    database,
-    documents
-):
-
-    clean_collection = database[
-        CLEAN_COLLECTION
-    ]
-
-    # هذه Collection معالجة وليست البيانات الأصلية
-    # لذلك يمكن إعادة بنائها عند تشغيل Pipeline
-    clean_collection.delete_many({})
-
-    if documents:
-
-        clean_collection.insert_many(
-            documents
-        )
-
-    print(
-        "\nتم إنشاء Collection نظيفة:"
-    )
-
-    print(
-        CLEAN_COLLECTION
-    )
-
-    print(
-        "عدد السجلات:",
-        clean_collection.count_documents({})
-    )
-
-
-# ==========================================================
-# 12. حفظ CSV
-# ==========================================================
-
-def save_processed_csv(df):
-
-    PROCESSED_FILE.parent.mkdir(
+    OUTPUT_FILE.parent.mkdir(
         parents=True,
         exist_ok=True
     )
 
-    # تحويل Arrays إلى JSON نصي حتى تحفظ بشكل واضح في CSV
-    csv_df = df.copy()
-
-    for column in [
-        "skills",
-        "projects"
-    ]:
-
-        csv_df[column] = (
-            csv_df[column]
-            .apply(
-                lambda value:
-                json.dumps(
-                    value,
-                    ensure_ascii=False
-                )
-            )
-        )
-
-    csv_df.to_csv(
-        PROCESSED_FILE,
+    df.to_csv(
+        OUTPUT_FILE,
         index=False
     )
 
-    print(
-        "\nتم حفظ MongoDB Processed CSV:"
-    )
-
-    print(
-        PROCESSED_FILE
-    )
-
 
 # ==========================================================
-# 13. Quality Report
+# تقرير بسيط
 # ==========================================================
 
-def create_quality_report(
-    raw_df,
-    clean_df
-):
+def save_report(
+    raw_count: int,
+    df: pd.DataFrame
+) -> None:
 
     REPORT_FILE.parent.mkdir(
         parents=True,
         exist_ok=True
     )
 
-    duplicate_ids = (
-        raw_df["student_id"]
-        .duplicated()
-        .sum()
+    report = (
+        "MONGODB DATA REPORT\n"
+        "===================\n"
+        f"Raw documents: {raw_count}\n"
+        f"Final students: {len(df)}\n"
+        f"Columns: {len(df.columns)}\n"
+        "Validation: PASSED\n"
     )
-
-    missing_gpa = (
-        raw_df["academic.gpa"]
-        .isnull()
-        .sum()
-    )
-
-    missing_attendance = (
-        raw_df[
-            "academic.attendance"
-        ]
-        .isnull()
-        .sum()
-    )
-
-    # تحويل مؤقت لغرض قياس الأخطاء الأصلية
-    age_numeric = pd.to_numeric(
-        raw_df["personal.age"],
-        errors="coerce"
-    )
-
-    gpa_numeric = pd.to_numeric(
-        raw_df["academic.gpa"],
-        errors="coerce"
-    )
-
-    attendance_numeric = pd.to_numeric(
-        raw_df[
-            "academic.attendance"
-        ],
-        errors="coerce"
-    )
-
-    invalid_age = (
-        age_numeric.notna()
-        &
-        ~age_numeric.between(
-            16,
-            80
-        )
-    ).sum()
-
-    invalid_gpa = (
-        gpa_numeric.notna()
-        &
-        ~gpa_numeric.between(
-            0,
-            4
-        )
-    ).sum()
-
-    invalid_attendance = (
-        attendance_numeric.notna()
-        &
-        ~attendance_numeric.between(
-            0,
-            100
-        )
-    ).sum()
-
-    report = f"""
-MONGODB DATA QUALITY REPORT
-===========================
-
-RAW COLLECTION
---------------
-Rows:
-{len(raw_df)}
-
-Duplicate Student IDs:
-{duplicate_ids}
-
-Missing GPA:
-{missing_gpa}
-
-Missing Attendance:
-{missing_attendance}
-
-Invalid Age:
-{invalid_age}
-
-Invalid GPA:
-{invalid_gpa}
-
-Invalid Attendance:
-{invalid_attendance}
-
-
-CLEAN COLLECTION
-----------------
-Rows:
-{len(clean_df)}
-
-Missing Values:
-{clean_df.isnull().sum().sum()}
-
-Duplicate Student IDs:
-{clean_df["student_id"].duplicated().sum()}
-
-
-VALIDATION STATUS
------------------
-PASSED
-"""
 
     REPORT_FILE.write_text(
         report,
         encoding="utf-8"
     )
 
-    print(
-        "\nتم إنشاء MongoDB Quality Report:"
-    )
-
-    print(
-        REPORT_FILE
-    )
-
 
 # ==========================================================
-# تشغيل MongoDB Pipeline
+# تشغيل الـ Pipeline
 # ==========================================================
 
 def main():
 
-    print(
-        "\n========== MONGODB PIPELINE START =========="
-    )
-
-    client = connect_mongodb()
+    client = None
 
     try:
 
-        database = client[
-            DATABASE_NAME
-        ]
-
-        raw_collection = database[
-            RAW_COLLECTION
-        ]
-
-        # 1. فحص Raw Collection
-        inspect_raw_data(
-            raw_collection
+        client, collection = (
+            get_collection()
         )
 
-        # 2. Nested Query
-        run_nested_query(
-            raw_collection
+        print(
+            "Connected to MongoDB."
         )
 
-        # 3. Array Query
-        run_array_query(
-            raw_collection
+        raw_count = (
+            collection.count_documents({})
         )
 
-        # 4. Aggregation
-        run_aggregation(
-            raw_collection
+        print(
+            f"Raw documents: {raw_count}"
         )
 
-        # 5. استخراج البيانات
-        raw_df = extract_to_dataframe(
-            raw_collection
+        # MongoDB Queries
+        show_queries(
+            collection
         )
 
-        # 6. اكتشاف مشاكل الجودة
-        inspect_quality(
-            raw_df
+        # MongoDB Aggregation
+        show_aggregation(
+            collection
         )
 
-        # 7. تنظيف وتحويل
-        clean_df = clean_data(
-            raw_df
+        # Extract
+        records = read_students(
+            collection
         )
 
-        # 8. التحقق
-        validate_data(
-            clean_df
+        # MongoDB -> Pandas
+        df = transform_to_dataframe(
+            records
         )
 
-        # 9. إعادة بناء Documents
-        clean_documents = (
-            dataframe_to_documents(
-                clean_df
-            )
+        # Cleaning
+        df = clean_data(
+            df
         )
 
-        # 10. حفظ Collection النظيفة
-        save_clean_collection(
-            database,
-            clean_documents
+        # Validation
+        validate_dataframe(
+            df
         )
 
-        # 11. حفظ CSV
-        save_processed_csv(
-            clean_df
+        # Save
+        save_data(
+            df
         )
 
-        # 12. تقرير الجودة
-        create_quality_report(
-            raw_df,
-            clean_df
+        save_report(
+            raw_count,
+            df
+        )
+
+        print(
+            "\nFinal MongoDB Data:"
+        )
+
+        print(
+            df[
+                [
+                    "student_id",
+                    "personal.name",
+                    "personal.city",
+                    "academic.gpa",
+                    "python_skill"
+                ]
+            ]
+        )
+
+        print(
+            "\nMongoDB Pipeline completed successfully."
+        )
+
+        print(
+            f"Rows: {len(df)}"
+        )
+
+        print(
+            f"Output: {OUTPUT_FILE}"
         )
 
     finally:
 
-        client.close()
+        if client is not None:
 
-        print(
-            "\nتم إغلاق الاتصال بـ MongoDB"
-        )
-
-    print(
-        "\n========== MONGODB PIPELINE COMPLETED =========="
-    )
+            client.close()
 
 
 if __name__ == "__main__":
