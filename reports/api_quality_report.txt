@@ -1,27 +1,6 @@
-
-API DATA QUALITY REPORT
-=======================
-
-Source:
-https://jsonplaceholder.typicode.com/users
-
-Raw Snapshot:
-users_raw_20261005_170405.json
-
-Rows Extracted:
-10
-
-Rows Processed:
-10
-
-Columns:
-18
-
-Missing Values:
-0
-
-Duplicate User IDs:
-0
-
-Status:
-PASSED
+API DATA REPORT
+===============
+Records: 10
+Columns: 5
+Missing values: 0
+Validation: PASSED

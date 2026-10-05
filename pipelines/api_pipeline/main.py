@@ -1,5 +1,4 @@
 from pathlib import Path
-from datetime import datetime, timezone
 import json
 import logging
 
@@ -8,24 +7,24 @@ import requests
 
 
 # ==========================================================
-# إعداد المسارات
+# الإعدادات
 # ==========================================================
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 
-# رابط الـ API الموجود في المرجع
-API_URL = "https://jsonplaceholder.typicode.com/users"
+API_URL = (
+    "https://jsonplaceholder.typicode.com/users"
+)
 
-# مجلد حفظ البيانات الأصلية القادمة من الـ API
-RAW_DIR = (
+RAW_FILE = (
     BASE_DIR
     / "data"
     / "raw"
     / "api"
+    / "users_raw.json"
 )
 
-# البيانات النهائية بعد المعالجة
-PROCESSED_FILE = (
+OUTPUT_FILE = (
     BASE_DIR
     / "data"
     / "processed"
@@ -33,14 +32,12 @@ PROCESSED_FILE = (
     / "users_clean.csv"
 )
 
-# تقرير الجودة
 REPORT_FILE = (
     BASE_DIR
     / "reports"
     / "api_quality_report.txt"
 )
 
-# ملف السجل
 LOG_FILE = (
     BASE_DIR
     / "logs"
@@ -49,7 +46,7 @@ LOG_FILE = (
 
 
 # ==========================================================
-# إعداد Logging
+# Logging
 # ==========================================================
 
 LOG_FILE.parent.mkdir(
@@ -64,117 +61,68 @@ logging.basicConfig(
         "%(asctime)s | "
         "%(levelname)s | "
         "%(message)s"
-    ),
-    encoding="utf-8"
+    )
 )
 
 logger = logging.getLogger(__name__)
 
 
 # ==========================================================
-# 1. Extract
-# جلب البيانات من الـ API
+# جلب البيانات من API
 # ==========================================================
 
-def extract_data():
-
-    logger.info(
-        "بدء جلب البيانات من API"
-    )
+def fetch_data(
+    url: str
+) -> list[dict]:
 
     try:
 
         response = requests.get(
-            API_URL,
+            url,
             timeout=10
         )
 
-        print(
-            "Status Code:",
-            response.status_code
-        )
-
-        # إظهار خطأ إذا كانت الاستجابة غير ناجحة
         response.raise_for_status()
 
-        # تحويل JSON إلى بيانات Python
         data = response.json()
 
-    except requests.Timeout as exc:
+        if not isinstance(
+            data,
+            list
+        ):
+            raise ValueError(
+                "Expected a JSON list."
+            )
+
+        return data
+
+    except requests.RequestException as exc:
 
         raise RuntimeError(
-            "انتهى وقت انتظار الـ API"
-        ) from exc
-
-    except requests.ConnectionError as exc:
-
-        raise RuntimeError(
-            "فشل الاتصال بالـ API"
-        ) from exc
-
-    except requests.HTTPError as exc:
-
-        raise RuntimeError(
-            "حدث HTTP Error"
+            "API request failed."
         ) from exc
 
     except ValueError as exc:
 
         raise RuntimeError(
-            "الاستجابة ليست JSON صحيحة"
+            "Invalid API response."
         ) from exc
 
-    # نتأكد أن النتيجة List كما نتوقع
-    if not isinstance(data, list):
-
-        raise ValueError(
-            "الـ API لم يرجع قائمة بيانات"
-        )
-
-    if not data:
-
-        raise ValueError(
-            "الـ API لم يرجع أي سجلات"
-        )
-
-    print(
-        "تم استخراج",
-        len(data),
-        "سجلات"
-    )
-
-    logger.info(
-        "تم استخراج %d سجلات",
-        len(data)
-    )
-
-    return data
-
 
 # ==========================================================
-# 2. Preserve Raw
-# حفظ البيانات الأصلية قبل أي معالجة
+# حفظ البيانات الخام
 # ==========================================================
 
-def save_raw_data(data):
+def save_raw_data(
+    data: list[dict]
+) -> None:
 
-    RAW_DIR.mkdir(
+    RAW_FILE.parent.mkdir(
         parents=True,
         exist_ok=True
     )
 
-    # إنشاء اسم مختلف لكل Snapshot
-    # حتى لا نكتب فوق البيانات السابقة
-    timestamp = datetime.now().strftime(
-        "%Y%m%d_%H%M%S"
-    )
-
-    raw_file = (
-        RAW_DIR
-        / f"users_raw_{timestamp}.json"
-    )
-
-    with raw_file.open(
+    with RAW_FILE.open(
         "w",
         encoding="utf-8"
     ) as file:
@@ -183,325 +131,201 @@ def save_raw_data(data):
             data,
             file,
             ensure_ascii=False,
-            indent=4
+            indent=2
         )
 
-    print(
-        "تم حفظ Raw JSON:"
+
+# ==========================================================
+# تحويل البيانات
+# ==========================================================
+
+def transform(
+    data: list[dict]
+) -> pd.DataFrame:
+
+    rows = []
+
+    for item in data:
+
+        rows.append({
+            "user_id":
+                item.get("id"),
+
+            "name":
+                item.get("name"),
+
+            "username":
+                item.get("username"),
+
+            "email":
+                item.get("email"),
+
+            "city":
+                (
+                    item.get("address")
+                    or {}
+                ).get("city")
+        })
+
+    return pd.DataFrame(
+        rows
     )
 
-    print(raw_file)
-
-    return raw_file
-
 
 # ==========================================================
-# 3. Transform
-# تحويل JSON المتداخل إلى DataFrame
-# ==========================================================
-
-def transform_data(data):
-
-    # json_normalize تفرد البيانات المتداخلة
-    df = pd.json_normalize(data)
-
-    # تغيير اسم id ليكون أكثر وضوحاً
-    df = df.rename(
-        columns={
-            "id": "user_id"
-        }
-    )
-
-    # إضافة معلومات مصدر البيانات
-    df["source"] = "api"
-
-    df["source_url"] = API_URL
-
-    df["retrieved_at"] = (
-        datetime.now(
-            timezone.utc
-        ).isoformat()
-    )
-
-    return df
-
-
-# ==========================================================
-# 4. Inspect
-# فحص البيانات قبل التنظيف
-# ==========================================================
-
-def inspect_data(df):
-
-    print(
-        "\n========== API DATA INSPECTION =========="
-    )
-
-    print("\nالحجم:")
-    print(df.shape)
-
-    print("\nالأعمدة:")
-    print(df.columns.tolist())
-
-    print("\nالقيم المفقودة:")
-    print(df.isnull().sum())
-
-    print("\nالسجلات المكررة:")
-    print(df.duplicated().sum())
-
-    print("\nأول 5 سجلات:")
-    print(df.head())
-
-
-# ==========================================================
-# 5. Clean
-# تنظيف البيانات
-# ==========================================================
-
-def clean_data(df):
-
-    # نعمل على نسخة من البيانات
-    df = df.copy()
-
-    # حذف التكرار الكامل
-    df = df.drop_duplicates()
-
-    # user_id يجب أن يكون فريداً
-    df = df.drop_duplicates(
-        subset=["user_id"],
-        keep="first"
-    )
-
-    # تنظيف الأعمدة النصية
-    text_columns = [
-        "name",
-        "username",
-        "email",
-        "phone",
-        "website"
-    ]
-
-    for column in text_columns:
-
-        if column in df.columns:
-
-            df[column] = (
-                df[column]
-                .astype("string")
-                .str.strip()
-            )
-
-    return df
-
-
-# ==========================================================
-# 6. Validate
 # التحقق من البيانات
 # ==========================================================
 
-def validate_data(df):
+def validate(
+    df: pd.DataFrame
+) -> None:
 
-    errors = []
+    required_columns = {
+        "user_id",
+        "name",
+        "username",
+        "email",
+        "city"
+    }
 
-    # التأكد أن البيانات ليست فارغة
-    if df.empty:
-
-        errors.append(
-            "البيانات فارغة"
-        )
-
-    # user_id لا يجب أن يكون مفقوداً
-    if df["user_id"].isnull().any():
-
-        errors.append(
-            "يوجد user_id مفقود"
-        )
-
-    # user_id يجب أن يكون فريداً
-    if df["user_id"].duplicated().any():
-
-        errors.append(
-            "يوجد user_id مكرر"
-        )
-
-    # الاسم مطلوب
-    if df["name"].isnull().any():
-
-        errors.append(
-            "يوجد Name مفقود"
-        )
-
-    # البريد مطلوب
-    if df["email"].isnull().any():
-
-        errors.append(
-            "يوجد Email مفقود"
-        )
-
-    if errors:
-
-        print(
-            "\nفشل التحقق من بيانات API"
-        )
-
-        for error in errors:
-            print("-", error)
-
-        raise ValueError(
-            "API validation failed"
-        )
-
-    print(
-        "\nتم التحقق من بيانات API بنجاح"
+    missing_columns = (
+        required_columns
+        - set(df.columns)
     )
 
+    if missing_columns:
+
+        raise ValueError(
+            f"Missing columns: {missing_columns}"
+        )
+
+    if df.empty:
+
+        raise ValueError(
+            "Dataset is empty."
+        )
+
+    if not df["user_id"].is_unique:
+
+        raise ValueError(
+            "user_id must be unique."
+        )
+
+    if df["name"].isnull().any():
+
+        raise ValueError(
+            "Name cannot be NULL."
+        )
+
 
 # ==========================================================
-# 7. Save Processed
-# حفظ البيانات النهائية
+# حفظ البيانات المعالجة
 # ==========================================================
 
-def save_processed_data(df):
+def save_processed(
+    df: pd.DataFrame
+) -> None:
 
-    PROCESSED_FILE.parent.mkdir(
+    OUTPUT_FILE.parent.mkdir(
         parents=True,
         exist_ok=True
     )
 
     df.to_csv(
-        PROCESSED_FILE,
+        OUTPUT_FILE,
         index=False
     )
 
-    print(
-        "\nتم حفظ البيانات المعالجة:"
-    )
-
-    print(PROCESSED_FILE)
-
 
 # ==========================================================
-# 8. Quality Report
-# إنشاء تقرير جودة البيانات
+# تقرير بسيط
 # ==========================================================
 
-def create_quality_report(
-    raw_data,
-    clean_df,
-    raw_file
-):
+def save_report(
+    df: pd.DataFrame
+) -> None:
 
     REPORT_FILE.parent.mkdir(
         parents=True,
         exist_ok=True
     )
 
-    missing_values = (
-        clean_df
-        .isnull()
-        .sum()
-        .sum()
+    report = (
+        "API DATA REPORT\n"
+        "===============\n"
+        f"Records: {len(df)}\n"
+        f"Columns: {len(df.columns)}\n"
+        f"Missing values: "
+        f"{df.isnull().sum().sum()}\n"
+        "Validation: PASSED\n"
     )
-
-    duplicate_ids = (
-        clean_df["user_id"]
-        .duplicated()
-        .sum()
-    )
-
-    report = f"""
-API DATA QUALITY REPORT
-=======================
-
-Source:
-{API_URL}
-
-Raw Snapshot:
-{raw_file.name}
-
-Rows Extracted:
-{len(raw_data)}
-
-Rows Processed:
-{len(clean_df)}
-
-Columns:
-{len(clean_df.columns)}
-
-Missing Values:
-{missing_values}
-
-Duplicate User IDs:
-{duplicate_ids}
-
-Status:
-PASSED
-"""
 
     REPORT_FILE.write_text(
         report,
         encoding="utf-8"
     )
 
-    print(
-        "\nتم إنشاء تقرير API:"
-    )
-
-    print(REPORT_FILE)
-
 
 # ==========================================================
-# تشغيل API Pipeline
+# تشغيل الـ Pipeline
 # ==========================================================
 
 def main():
 
-    print(
-        "\n========== API PIPELINE START =========="
+    logger.info(
+        "Starting API Pipeline."
     )
 
-    # 1. استخراج البيانات
-    raw_data = extract_data()
-
-    # 2. حفظ نسخة Raw
-    raw_file = save_raw_data(
-        raw_data
-    )
-
-    # 3. تحويل البيانات
-    df = transform_data(
-        raw_data
-    )
-
-    # 4. فحص البيانات
-    inspect_data(
-        df
-    )
-
-    # 5. تنظيف البيانات
-    df = clean_data(
-        df
-    )
-
-    # 6. التحقق
-    validate_data(
-        df
-    )
-
-    # 7. حفظ البيانات
-    save_processed_data(
-        df
-    )
-
-    # 8. إنشاء تقرير الجودة
-    create_quality_report(
-        raw_data,
-        df,
-        raw_file
+    data = fetch_data(
+        API_URL
     )
 
     print(
-        "\n========== API PIPELINE COMPLETED =========="
+        f"Received records: {len(data)}"
+    )
+
+    save_raw_data(
+        data
+    )
+
+    df = transform(
+        data
+    )
+
+    validate(
+        df
+    )
+
+    save_processed(
+        df
+    )
+
+    save_report(
+        df
+    )
+
+    logger.info(
+        "API Pipeline completed."
+    )
+
+    print(
+        "\nAPI Data:"
+    )
+
+    print(
+        df.head()
+    )
+
+    print(
+        "\nAPI Pipeline completed successfully."
+    )
+
+    print(
+        f"Rows: {len(df)}"
+    )
+
+    print(
+        f"Output: {OUTPUT_FILE}"
     )
 
 
