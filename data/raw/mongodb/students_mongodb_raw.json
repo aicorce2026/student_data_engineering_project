@@ -1,0 +1,120 @@
+[
+  {
+    "student_id": "STU001",
+    "personal": {
+      "name": " Ahmed Ali ",
+      "age": 21,
+      "city": "sanaa"
+    },
+    "academic": {
+      "gpa": 3.45,
+      "attendance": 92
+    },
+    "skills": ["Python", "SQL"],
+    "projects": [
+      {
+        "name": "Student System",
+        "year": 2026
+      }
+    ]
+  },
+  {
+    "student_id": "STU002",
+    "personal": {
+      "name": "Sara Mohammed",
+      "age": 22,
+      "city": "Sanaa"
+    },
+    "academic": {
+      "gpa": 3.82,
+      "attendance": 96
+    },
+    "skills": ["Python", "MongoDB"],
+    "projects": [
+      {
+        "name": "AI Project",
+        "year": 2026
+      }
+    ]
+  },
+  {
+    "student_id": "STU003",
+    "personal": {
+      "name": "Omar Hassan",
+      "age": -4,
+      "city": " dhamar "
+    },
+    "academic": {
+      "gpa": 3.05,
+      "attendance": 88
+    },
+    "skills": ["SQL", "PostgreSQL"],
+    "projects": []
+  },
+  {
+    "student_id": "STU004",
+    "personal": {
+      "name": "Noura Salem",
+      "age": 23,
+      "city": "IBB"
+    },
+    "academic": {
+      "gpa": 4.7,
+      "attendance": 94
+    },
+    "skills": ["Python", "Pandas"],
+    "projects": [
+      {
+        "name": "Data Pipeline",
+        "year": 2026
+      }
+    ]
+  },
+  {
+    "student_id": "STU005",
+    "personal": {
+      "name": "Ali Ahmed",
+      "age": 25,
+      "city": "Taiz"
+    },
+    "academic": {
+      "gpa": null,
+      "attendance": 105
+    },
+    "skills": ["Python", "SQL", "MongoDB"],
+    "projects": []
+  },
+  {
+    "student_id": "STU006",
+    "personal": {
+      "name": "Huda Omar",
+      "age": "22",
+      "city": "sanaa"
+    },
+    "academic": {
+      "gpa": "3.70",
+      "attendance": null
+    },
+    "skills": ["Pandas", "Polars"],
+    "projects": [
+      {
+        "name": "Analytics",
+        "year": 2026
+      }
+    ]
+  },
+  {
+    "student_id": "STU002",
+    "personal": {
+      "name": "Sara Mohammed",
+      "age": 22,
+      "city": "Sanaa"
+    },
+    "academic": {
+      "gpa": 3.82,
+      "attendance": 96
+    },
+    "skills": ["Python", "MongoDB"],
+    "projects": []
+  }
+]

@@ -1,0 +1,7 @@
+student_id,skills,projects,personal.name,personal.age,personal.city,academic.gpa,academic.attendance,skills_count,projects_count,has_python,performance_score
+STU001,"[""Python"", ""SQL""]","[{""name"": ""Student System"", ""year"": 2026}]",Ahmed Ali,21.0,Sanaa,3.45,92.0,2,1,True,86.25
+STU002,"[""Python"", ""MongoDB""]","[{""name"": ""AI Project"", ""year"": 2026}]",Sara Mohammed,22.0,Sanaa,3.82,96.0,2,1,True,95.5
+STU003,"[""SQL"", ""PostgreSQL""]",[],Omar Hassan,22.0,Dhamar,3.05,88.0,2,0,False,76.25
+STU004,"[""Python"", ""Pandas""]","[{""name"": ""Data Pipeline"", ""year"": 2026}]",Noura Salem,23.0,Ibb,3.7,94.0,2,1,True,92.5
+STU005,"[""Python"", ""SQL"", ""MongoDB""]",[],Ali Ahmed,25.0,Taiz,3.7,94.0,3,0,True,92.5
+STU006,"[""Pandas"", ""Polars""]","[{""name"": ""Analytics"", ""year"": 2026}]",Huda Omar,22.0,Sanaa,3.7,94.0,2,1,False,92.5

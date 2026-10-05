@@ -1,0 +1,43 @@
+
+MONGODB DATA QUALITY REPORT
+===========================
+
+RAW COLLECTION
+--------------
+Rows:
+7
+
+Duplicate Student IDs:
+1
+
+Missing GPA:
+1
+
+Missing Attendance:
+1
+
+Invalid Age:
+1
+
+Invalid GPA:
+1
+
+Invalid Attendance:
+1
+
+
+CLEAN COLLECTION
+----------------
+Rows:
+6
+
+Missing Values:
+0
+
+Duplicate Student IDs:
+0
+
+
+VALIDATION STATUS
+-----------------
+PASSED
